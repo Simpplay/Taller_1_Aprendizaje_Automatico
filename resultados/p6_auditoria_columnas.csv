@@ -1,0 +1,7 @@
+,dtype,faltantes,valores únicos,mín,máx
+frecuencia,int64,0,21,200.0,20000.0
+angulo,float64,0,27,0.0,22.2
+cuerda,float64,0,6,0.0254,0.3048
+velocidad,float64,0,4,31.7,71.3
+espesor,float64,0,105,0.000400682,0.0584113
+sonido,float64,0,1456,103.38,140.987

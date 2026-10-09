@@ -1,0 +1,34 @@
+grupo,prueba,valor,umbral,pasa
+gradiente,lineal MSE/2 (b incluido): max delta_g en 3 puntos,1.0325297402283867e-10,1e-05,True
+gradiente,lineal + L2 (lam2=0.3): max delta_g en 3 puntos,1.2814801429869577e-10,1e-05,True
+gradiente,Lasso: parte suave (lam1=0.2): max delta_g en 3 puntos,2.5133479568981885e-10,1e-05,True
+gradiente,logística: max delta_g en 3 puntos,1.585691102490838e-10,1e-05,True
+gradiente,logística + L2 (lam2=0.3): max delta_g en 3 puntos,2.2341212673702235e-10,1e-05,True
+gradiente,logística ponderada + L2: max delta_g en 3 puntos,1.84582379480363e-10,1e-05,True
+estabilidad,"sigmoide finita y en [0,1] (7 valores)",0.0,0.5,True
+estabilidad,|p(z)+p(-z)-1| máx,0.0,1e-15,True
+estabilidad,pérdidas finitas (y=0 y y=1),0.0,0.5,True
+estabilidad,error relativo de la pérdida vs. referencia analítica,0.0,1e-14,True
+OLS,columna duplicada: rango detectado = p-1,0.0,0.5,True
+OLS,columna duplicada: ||X~^T r||,2.0069398476751472e-14,1e-08,True
+OLS,predicciones = OLS sin duplicado (máx |dif|),7.327471962526033e-15,1e-09,True
+OLS,w1 + w_dup = w1 sin duplicado,7.494005416219807e-16,1e-09,True
+Ridge,columna duplicada: residuo ecuaciones normales,6.352571580290331e-15,1e-08,True
+Ridge,solución única: coeficientes duplicados iguales,1.6653345369377348e-16,1e-10,True
+Ridge,GD coincide con solve (máx |dif theta|),5.4046767061777246e-12,1e-08,True
+Lasso,ortogonal: X^T X/N = I (máx |dif|),4.440892098500626e-16,1e-12,True
+Lasso,"ortogonal: |w - S(s, lam1)| máx",2.220446049250313e-16,1e-09,True
+Lasso,ortogonal: ceros exactos coinciden,0.0,0.5,True
+Lasso,ortogonal: violación KKT,2.220446049250313e-16,1e-08,True
+Lasso,no ortogonal: violación KKT,6.556893916709328e-12,1e-08,True
+Lasso,no ortogonal: terminó por tolerancia,0.0,0.5,True
+persistencia,Ridge: predicciones antes/después de guardar,0.0,1e-15,True
+persistencia,Lasso: predicciones antes/después de guardar,0.0,1e-15,True
+persistencia,Logística: predicciones antes/después de guardar,0.0,1e-15,True
+probabilidades,"predict_proba en [0,1]",0.0,0.5,True
+probabilidades,|suma de columnas - 1| máx,2.220446049250313e-16,1e-12,True
+probabilidades,cambiar tau no cambia predict_proba ni log-loss,0.0,0.0,True
+probabilidades,decisiones monótonas en tau (#positivos 0.1>=0.5>=0.9),0.0,0.5,True
+estado,segunda llamada a fit reinicializa (mismas iteraciones y theta),0.0,0.0,True
+estado,warm_start=True parte de la solución previa (iteraciones 2º ajuste),1.0,25.0,True
+validación,entradas inválidas rechazadas con ValueError (de 8),0.0,0.0,True

@@ -1,0 +1,415 @@
+\documentclass[10pt,a4paper]{article}
+% Compila con pdflatex (TeX Live), solo paquetes estándar.
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noshorthands,es-tabla,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage[margin=1.9cm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs,graphicx,caption,enumitem,microtype}
+\usepackage[hidelinks]{hyperref}
+\setlist{nosep,leftmargin=1.2em}
+\captionsetup{font=small,labelfont=bf,skip=3pt}
+\setlength{\parskip}{3pt}\setlength{\parindent}{0pt}\emergencystretch=3em
+\newcommand{\Xt}{\tilde X}
+\newcommand{\R}{\mathbb R}
+\newcommand{\E}{\mathbb E}
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\Cov}{Cov}
+\newcommand{\paso}[1]{\textbf{#1}\ }
+\newcommand{\idea}[1]{\par\smallskip\noindent\fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\textbf{En palabras:} #1}}\par\smallskip}
+\graphicspath{{../resultados/}}
+% Tiempos medidos en mi equipo (Windows, Python sin entorno virtual)
+\newcommand{\tiempoUno}{18.6\,s}
+\newcommand{\tiempoDos}{11.7\,s}
+\newcommand{\tiempoTres}{11.2\,s}
+\newcommand{\equipo}{Windows 11, Intel Core i7-12700KF, 48\,GB de RAM, Python 3.14.7}
+
+\title{\vspace{-1.2cm}Taller 1 --- Aprendizaje Automático (2026-2S)\\\large Datos, modelos lineales y decisiones bajo incertidumbre}
+\author{Juan José Jiménez Maya}
+\date{8 de octubre de 2026}
+
+\begin{document}
+\maketitle\vspace{-0.8cm}
+
+\paragraph{Convenciones.} Escribo $\Xt=[\bm 1_N\ X]\in\R^{N\times(D+1)}$ (la matriz $X$ con una columna de unos al inicio), $\theta=(b,w^\top)^\top$ (intercepto y coeficientes en un solo vector) y $P=\operatorname{diag}(0,1,\dots,1)$. Uso los mismos objetivos del notebook de clase:
+\[
+F_{\text{lin}}(\theta)=\tfrac{1}{2N}\lVert y-\Xt\theta\rVert_2^2+\tfrac{\lambda_2}{2}\lVert w\rVert_2^2+\lambda_1\lVert w\rVert_1,\qquad
+F_{\text{log}}(\theta)=\tfrac1N\textstyle\sum_n\big[\log(1+e^{z_n})-y_nz_n\big]+\tfrac{\lambda_2}{2}\lVert w\rVert_2^2,\quad z_n=\tilde x_n^\top\theta .
+\]
+Nunca penalizo el intercepto. El código está en el módulo \texttt{mlcore.py} y en tres notebooks ejecutados; las tablas y figuras que cito están en \texttt{resultados/}.
+
+\textbf{Alcance.} Esta entrega incluye el Problema 1 de la parte teórica y los Problemas 4 a 7 de la parte práctica. \textbf{No presento los Problemas 2 y 3.}
+
+% =====================================================================
+\section*{Parte I. Fundamentación teórica}
+
+\subsection*{Problema 1. Mínimos cuadrados, Ridge y estabilidad}
+\textbf{Pregunta central: ¿cómo puede aumentar el sesgo y, aun así, mejorar la estimación?} La respuesta corta, que voy a justificar en (c), es que Ridge agrega un poco de sesgo pero quita mucha varianza en las direcciones donde los datos tienen poca información; si lo que se gana en varianza es más de lo que se pierde en sesgo, el error total baja.
+
+\textbf{(a) Verosimilitud, gradiente y ecuaciones normales.}
+
+\paso{Premisas.} Supongo que cada respuesta es la predicción lineal más un ruido normal, y que las observaciones son independientes:
+\[ z=Xw+b\,\bm 1_N,\qquad Y_n\mid x_n\sim\mathcal N(z_n,\sigma^2). \]
+\paso{Paso 1: juntar $b$ y $w$.} Con $\Xt=[\bm 1_N\ X]$ y $\theta=(b,w^\top)^\top$ el producto da la predicción:
+\[ \Xt\theta=\begin{bmatrix}\bm 1_N & X\end{bmatrix}\begin{bmatrix}b\\ w\end{bmatrix}=\bm 1_Nb+Xw=z. \]
+\idea{la columna de unos se multiplica por $b$, así que el intercepto queda ``dentro'' de la matriz y puedo tratar todo como un solo vector.}
+\paso{Paso 2: densidad de una observación.} Es la normal evaluada en el valor observado $y_n$:
+\[ p(y_n)=\frac{1}{\sqrt{2\pi\sigma^2}}\exp\!\Big(-\frac{(y_n-z_n)^2}{2\sigma^2}\Big). \]
+\paso{Paso 3: log-verosimilitud.} Como las observaciones son independientes, las densidades se multiplican; al tomar logaritmo el producto pasa a ser una suma:
+\[ \ell(\theta)=\sum_{n=1}^N\Big[-\tfrac12\log(2\pi\sigma^2)-\frac{(y_n-z_n)^2}{2\sigma^2}\Big]=-\frac N2\log(2\pi\sigma^2)-\frac{1}{2\sigma^2}\lVert y-\Xt\theta\rVert_2^2 . \]
+\paso{Paso 4: relación con la pérdida.} Defino $J(\theta)=\frac1{2N}\lVert y-\Xt\theta\rVert_2^2$. Si multiplico $\ell$ por el número negativo $-\sigma^2/N$:
+\[ -\frac{\sigma^2}{N}\,\ell(\theta)=\underbrace{\tfrac{\sigma^2}{2}\log(2\pi\sigma^2)}_{\text{no depende de }\theta}+J(\theta). \]
+Multiplicar por un negativo cambia ``maximizar'' por ``minimizar'' y sumar una constante no mueve el óptimo. Entonces \textbf{maximizar $\ell$ es lo mismo que minimizar $J$}. Ridge agrega $\frac{\lambda_2}{2}\lVert w\rVert^2$, que equivale a suponer de antemano $w\sim\mathcal N(0,\tau^2I)$ con $\lambda_2=\sigma^2/(N\tau^2)$.
+\idea{si el ruido es normal, buscar los parámetros ``más probables'' es exactamente lo mismo que minimizar el error cuadrático medio.}
+
+\paso{Paso 5: expandir $J$.} Uso $\lVert v\rVert^2=v^\top v$:
+\[ J(\theta)=\tfrac{1}{2N}(y-\Xt\theta)^\top(y-\Xt\theta)=\tfrac{1}{2N}\big[y^\top y-y^\top\Xt\theta-\theta^\top\Xt^\top y+\theta^\top\Xt^\top\Xt\theta\big]. \]
+\paso{Paso 6: juntar los términos del medio.} $y^\top\Xt\theta$ es un número ($1\times1$) y un número es igual a su transpuesta, así que $y^\top\Xt\theta=\theta^\top\Xt^\top y$:
+\[ J(\theta)=\tfrac{1}{2N}\big[y^\top y-2\,\theta^\top\Xt^\top y+\theta^\top\Xt^\top\Xt\theta\big]. \]
+\paso{Paso 7: derivar.} Uso dos reglas: $\nabla(\theta^\top a)=a$ y, si $A$ es simétrica, $\nabla(\theta^\top A\theta)=2A\theta$. Como $\Xt^\top\Xt$ es simétrica:
+\[ \nabla J(\theta)=\tfrac{1}{2N}\big[-2\Xt^\top y+2\Xt^\top\Xt\theta\big]=\tfrac1N\Xt^\top(\Xt\theta-y). \]
+\paso{Paso 8: término de Ridge.} El 0 de $P$ ``apaga'' el intercepto: $\theta^\top P\theta=w_1^2+\dots+w_D^2=\lVert w\rVert_2^2$. $P$ también es simétrica, así que $\nabla\big(\frac{\lambda_2}{2}\theta^\top P\theta\big)=\lambda_2P\theta$.
+
+\paso{Paso 9: gradiente y Hessiano.} Sumo los pasos 7 y 8 y derivo otra vez:
+\[ \nabla F(\theta)=\tfrac1N\Xt^\top(\Xt\theta-y)+\lambda_2P\theta,\qquad \nabla^2F(\theta)=\tfrac1N\Xt^\top\Xt+\lambda_2P. \]
+\paso{Paso 10: ecuaciones normales.} En el mínimo el gradiente vale cero. Multiplico por $N$ y saco $\theta$ como factor común:
+\[ \Xt^\top(\Xt\theta-y)+N\lambda_2P\theta=0\quad\Longrightarrow\quad \boxed{(\Xt^\top\Xt+N\lambda_2P)\,\theta=\Xt^\top y}. \]
+Con $\lambda_2=0$ quedan las ecuaciones de OLS. \emph{Dimensiones:} $\Xt$ es $N\times(D+1)$; $\theta$ y $\nabla F$ son $(D+1)\times1$; $y$ y $\Xt\theta$ son $N\times1$; $\Xt^\top\Xt$, $P$ y $\nabla^2F$ son $(D+1)\times(D+1)$.
+\idea{Ridge es igual que OLS pero sumando $N\lambda_2$ en la diagonal (menos en la posición del intercepto). Esa suma es lo que hace que el sistema siempre tenga solución única, como muestro en (b).}
+
+\textbf{(b) Unicidad y residuos.}
+
+\paso{Paso 1: suponer dos soluciones.} Si $\theta_1$ y $\theta_2$ cumplen $\Xt^\top\Xt\theta=\Xt^\top y$, al restarlas con $v=\theta_1-\theta_2$ queda $\Xt^\top\Xt v=0$.
+
+\paso{Paso 2: multiplicar por $v^\top$.} Así aparece una norma al cuadrado, que solo vale 0 si el vector es 0:
+\[ v^\top\Xt^\top\Xt v=(\Xt v)^\top(\Xt v)=\lVert\Xt v\rVert_2^2=0\quad\Longrightarrow\quad \Xt v=0. \]
+\paso{Paso 3: conclusión para OLS.} Si las columnas de $\Xt$ son independientes (rango $D+1$, lo que exige $N\ge D+1$), $\Xt v=0$ solo pasa con $v=0$ y la solución es única. Si alguna columna es combinación de otras, hay un $v\neq0$ y $\theta+v$ también es solución. \textbf{OLS es única si y solo si $\Xt$ tiene columnas independientes.}
+
+\paso{Paso 4: Ridge.} Repito el paso 2 con la matriz de Ridge:
+\[ v^\top(\Xt^\top\Xt+N\lambda_2P)v=\lVert\Xt v\rVert_2^2+N\lambda_2\lVert v_w\rVert_2^2=0 . \]
+Los dos sumandos son $\ge0$, así que los dos valen cero. Del segundo, $v_w=0$; reemplazando en el primero, $\Xt v=\bm 1_Nv_b=0$, y entonces $v_b=0$ porque $N\ge1$. Luego $v=0$: \textbf{Ridge con $\lambda_2>0$ tiene solución única aunque $X$ tenga columnas dependientes y aunque $b$ no se penalice.}
+
+\paso{Paso 5: residuos.} Con $r=y-\Xt\hat\theta$, las ecuaciones normales dicen: en OLS, $\Xt^\top r=0$; en Ridge, $\Xt^\top r=N\lambda_2P\hat\theta$. En Ridge la primera fila (la de unos) sigue dando $\sum_nr_n=0$ porque $P$ tiene un 0 ahí, pero las demás dan $X^\top r=N\lambda_2\hat w$, que no es cero. Una proyección ortogonal necesita que el residuo sea perpendicular a \emph{todas} las columnas. Por eso OLS sí es una proyección ortogonal y \textbf{no es correcto llamar proyección ortogonal al ajuste Ridge}: es un ajuste ``encogido'' (la matriz $H_\lambda=\Xt(\Xt^\top\Xt+N\lambda_2P)^{-1}\Xt^\top$ no cumple $H_\lambda^2=H_\lambda$).
+\idea{OLS deja un residuo que no tiene ``nada más que explicar'' con las columnas de $X$. Ridge, a propósito, deja algo sin explicar porque prefiere coeficientes más pequeños.}
+
+\textbf{(c) Sesgo y varianza.} Aquí ``sesgo'' es el error promedio del estimador, no el intercepto $b$.
+
+\paso{Premisas.} $b=0$, $X$ fija y de rango completo, $y=Xw^\star+\varepsilon$ con $\E[\varepsilon]=0$ y $\Cov(\varepsilon)=\sigma^2I_N$.
+
+\paso{Paso 1: solución.} Con $b=0$, $P$ es la identidad y $\hat w=AX^\top y$ con $A=(X^\top X+N\lambda_2I)^{-1}$ (simétrica).
+
+\paso{Paso 2: valor esperado.} La esperanza pasa por las matrices fijas y $\E[y]=Xw^\star$: $\E[\hat w]=AX^\top Xw^\star$.
+
+\paso{Paso 3: sesgo.} Despejo $X^\top X=A^{-1}-N\lambda_2I$, entonces $AX^\top X=I-N\lambda_2A$ y
+\[ \text{sesgo}=\E[\hat w]-w^\star=(I-N\lambda_2A)w^\star-w^\star=-N\lambda_2Aw^\star . \]
+\paso{Paso 4: covarianza.} Con $\Cov(My)=M\Cov(y)M^\top$ y $M=AX^\top$: $\Cov(\hat w)=AX^\top(\sigma^2I)XA=\sigma^2AX^\top XA$.
+
+\paso{Paso 5: direcciones propias.} Escribo $X^\top X=\sum_kd_kv_kv_k^\top$; $d_k>0$ mide cuánta información hay en la dirección $v_k$. Con $\kappa=N\lambda_2$ y $\alpha_k=v_k^\top w^\star$, $A=\sum_k\frac{1}{d_k+\kappa}v_kv_k^\top$ y todo se separa por direcciones:
+\[ \text{sesgo}_k=-\frac{\kappa}{d_k+\kappa}\,\alpha_k,\qquad \operatorname{Var}_k=\sigma^2\frac{d_k}{(d_k+\kappa)^2}. \]
+\idea{en cada dirección, Ridge multiplica la estimación de OLS por $d_k/(d_k+\kappa)$, un número entre 0 y 1. Si $d_k$ es grande (mucha información) casi no la toca; si $d_k$ es pequeño (variables casi colineales) la encoge mucho.}
+\paso{Paso 6: extremos.} Si $\lambda_2\to0$: sesgo $\to0$ y $\operatorname{Var}_k\to\sigma^2/d_k$ (OLS), que es enorme cuando $d_k$ es pequeño. Si $\lambda_2\to\infty$: $\hat w\to0$, el sesgo tiende a $-\alpha_k$ y la varianza a 0.
+
+\paso{Paso 7: ¿cuándo gana Ridge?} Comparo el error de la dirección $k$ (sesgo$^2$ + varianza) con el de OLS:
+\[ \frac{\kappa^2\alpha_k^2+\sigma^2d_k}{(d_k+\kappa)^2}<\frac{\sigma^2}{d_k}. \]
+Multiplico en cruz, cancelo $\sigma^2d_k^2$ a ambos lados y divido por $\kappa>0$:
+\[ \kappa\,(d_k\alpha_k^2-\sigma^2)<2\sigma^2d_k . \]
+Dos lecturas: si $\kappa$ es pequeño la desigualdad siempre se cumple, así que \textbf{siempre hay un $\lambda_2$ que mejora a OLS}. Pero si la dirección tiene señal fuerte ($d_k\alpha_k^2>\sigma^2$) y $\kappa$ es grande, la desigualdad falla: \emph{una menor varianza no garantiza un menor error para cualquier regularización}, porque el sesgo$^2$ sigue creciendo. \textbf{Conclusión de estabilidad:} como $\operatorname{Var}_k\le\sigma^2/(4N\lambda_2)$, Ridge pone un techo a la inestabilidad de las direcciones casi colineales. Esto lo compruebo con la simulación del Problema 5.
+
+% =====================================================================
+\section*{Parte II. Implementación y experimentación}
+
+\subsection*{Problema 4. Modelos desde cero y verificación numérica}
+\textbf{(a) Implementación.}
+
+\paso{Premisas.} Todos los modelos están en un solo módulo, \texttt{mlcore.py}, hecho con NumPy: sin inversas explícitas, sin diferenciación automática y sin optimizadores genéricos. Cada clase separa entrenar (\texttt{fit}), predecir (\texttt{predict}, \texttt{predict\_proba}) y evaluar (\texttt{objective}, \texttt{log\_loss}).
+
+\paso{Paso 1: fórmulas cerradas.} OLS usa \texttt{np.linalg.lstsq}, que trabaja con la SVD; si hay columnas repetidas da la solución de norma mínima y guardo el rango. Ridge resuelve con \texttt{np.linalg.solve} el sistema $(\Xt^\top\Xt+N\lambda_2P)\theta=\Xt^\top y$ del Problema 1(a).
+
+\paso{Paso 2: descenso por gradiente.} Para regresión lineal y logística (con L2 opcional) actualizo $\theta\leftarrow\theta-\eta\nabla F(\theta)$ con paso fijo $\eta=1/L$, donde $L$ es la constante de Lipschitz del gradiente: $L=\sigma_{\max}(\Xt)^2/N+\lambda_2$ en el caso lineal y $L=\sigma_{\max}(\sqrt a\,\Xt)^2/(4S)+\lambda_2$ en el logístico ($a$ son los pesos de clase y $S=\sum_na_n$). Con este paso el objetivo baja en cada iteración, así que no tengo que probar tasas a mano.
+
+\paso{Paso 3: Lasso por gradiente proximal.} El término $\lambda_1\lVert w\rVert_1$ no se puede derivar en cero, así que en cada iteración hago dos cosas: (1) un paso de gradiente sobre la parte derivable, $u=\theta-\eta\nabla f(\theta)$; (2) aplico a cada $w_j$ el \emph{umbral suave} $S(u_j,\eta\lambda_1)=\sign(u_j)\max(|u_j|-\eta\lambda_1,0)$, sin tocar $b$. Este operador acerca cada coeficiente a cero en $\eta\lambda_1$ y, si $|u_j|\le\eta\lambda_1$, lo deja en \emph{cero exacto}. Por eso los ceros salen del algoritmo y no de redondear al final.
+
+\paso{Paso 4: parada y registro.} Paro cuando $\lVert\theta^+-\theta\rVert_2/\eta<\texttt{tol}$. En los modelos sin L1 esto es exactamente la norma del gradiente; en Lasso es el residuo de la actualización proximal, que incluye a $b$. La tolerancia por defecto es $10^{-8}$ y el máximo va de $5\cdot10^4$ a $2\cdot10^5$ iteraciones. Guardo el objetivo completo en cada iteración, el número de iteraciones y el motivo de parada; reviso dimensiones, valores finitos e hiperparámetros; y cada \texttt{fit} vuelve a empezar en $\theta=0$, salvo que se pida \texttt{warm\_start=True}. La opción \texttt{accelerate} agrega momento (tipo FISTA): en vez de dar el paso desde el punto actual, lo da desde un punto ``empujado'' en la dirección del paso anterior, y si ese empuje va en contra, lo reinicia. Solo sirve para que los Problemas 5--7 corran en segundos; el criterio de parada es el mismo.
+
+\paso{Conclusión.} En la Figura~\ref{fig:p4} todas las corridas terminan por tolerancia y el objetivo baja en cada iteración. En Ridge la distancia al mínimo exacto (el de \texttt{solve}) baja hasta el error de redondeo, lo que confirma a la vez el gradiente y las ecuaciones normales.
+
+\begin{figure}[h]\centering
+\includegraphics[width=0.95\linewidth]{p4_convergencia.png}
+\caption{Historial de convergencia ($\eta=1/L$, parada por tolerancia): Ridge por GD frente a su mínimo exacto, Lasso proximal y logística L2, con y sin aceleración.}\label{fig:p4}
+\end{figure}
+
+\textbf{(b) Pruebas automáticas.}
+
+\paso{Premisas.} Programé 33 pruebas dentro del Notebook~1. Cada una compara un valor con un umbral fijo, y un \texttt{assert} detiene el notebook si alguna falla. La tabla completa está en \texttt{p4\_pruebas\_numericas.csv}; las 33 pasan.
+
+\paso{Paso 1: gradientes.} Comparo el gradiente que programé con el de diferencias centrales, $g_j\approx[F(\theta+he_j)-F(\theta-he_j)]/(2h)$ con $h=10^{-6}$, en tres puntos $\theta\sim U(-1,1)$, incluyendo $b$, L2 y pesos de clase. El peor caso es $\delta_g\le2.5\times10^{-10}$, muy por debajo de la meta $10^{-5}$. La parte L1 no la derivo numéricamente en cero; Lasso lo reviso con las condiciones de optimalidad (KKT).
+
+\paso{Paso 2: estabilidad.} Evalúo la sigmoide y la pérdida en $z\in\{\pm1000,\pm100,\pm1,0\}$ con las dos etiquetas. Para no desbordarme nunca calculo $e^{z}$ con $z$ positivo: uso $\sigma(z)=1/(1+e^{-|z|})$ o $e^{-|z|}/(1+e^{-|z|})$ según el signo, y la pérdida como $\log(1+e^{u})=\max(u,0)+\operatorname{log1p}(e^{-|u|})$ con $u=(1-2y)z$. Todos los valores salen finitos y el error frente al valor exacto es 0, sin recortar el score.
+
+\paso{Paso 3: casos difíciles.} OLS con una columna duplicada detecta rango $D$, cumple $\lVert\Xt^\top r\rVert=2\times10^{-14}$ y conserva las predicciones. Ridge con la misma columna duplicada tiene residuo de ecuaciones normales $6\times10^{-15}$ y le da el mismo coeficiente a las dos copias, como dice 1(b). Lasso en un diseño ortogonal ($X^\top X/N=I$) reproduce el umbral suave $S(s,\lambda_1)$ con $s=X^\top y/N$ (error $2\times10^{-16}$), y en un diseño correlacionado la violación de KKT es $7\times10^{-12}$.
+
+\paso{Paso 4: guardado y probabilidades.} Guardar y cargar los parámetros en JSON no cambia las predicciones; las probabilidades están en $[0,1]$ y suman 1; y cambiar $\tau$ no cambia \texttt{predict\_proba} ni la log-loss.
+
+\textbf{(c) Comparación con scikit-learn 1.9.1.}
+
+\paso{Premisas.} Comparo con scikit-learn sobre las mismas matrices ya preparadas. Como scikit-learn escribe los objetivos de otra forma, multiplico mi objetivo por una constante para que queden iguales (Tabla~\ref{tab:equiv}).
+
+\begin{table}[h]\centering\small
+\caption{Correspondencia entre mis hiperparámetros y los de scikit-learn 1.9.1 (intercepto nunca penalizado).}\label{tab:equiv}
+\begin{tabular}{llll}\toprule
+Estimador & Objetivo de scikit-learn & Multiplico el mío por & Equivalencia\\\midrule
+\texttt{LinearRegression} & $\lVert y-Xw-b\rVert^2$ & $2N$ & sin penalización\\
+\texttt{Ridge} & $\lVert y-Xw-b\rVert^2+\alpha\lVert w\rVert^2$ & $2N$ & $\alpha=N\lambda_2$\\
+\texttt{Lasso} & $\frac1{2N}\lVert y-Xw-b\rVert^2+\alpha\lVert w\rVert_1$ & $1$ & $\alpha=\lambda_1$\\
+\texttt{LogisticRegression} & $C\sum_ns_n\ell_n+\frac12\lVert w\rVert^2$ & $1/(S\lambda_2)$ & $C=1/(S\lambda_2)$, con $S=N$\\\bottomrule
+\end{tabular}\end{table}
+
+\paso{Ejemplo de la derivación (Ridge).} Mi objetivo es $\frac1{2N}\lVert r\rVert^2+\frac{\lambda_2}{2}\lVert w\rVert^2$. Al multiplicarlo por $2N$ queda $\lVert r\rVert^2+N\lambda_2\lVert w\rVert^2$, que es el de scikit-learn con $\alpha=N\lambda_2$. Las demás filas salen igual.
+
+\paso{Paso 1: recalcular con $N$ y $N/2$.} Como $\alpha$ de Ridge y $C$ dependen de $N$, repito todo con $N$ y con $N/2$ filas, recalculando la equivalencia. Para la logística sin penalizar uso \texttt{C=np.inf}.
+
+\paso{Paso 2: resultados.} En los 14 contrastes la diferencia relativa de objetivo es como mucho $2.2\times10^{-16}$ y el error relativo de predicciones o probabilidades como mucho $1.3\times10^{-8}$, frente a la meta $10^{-4}$. En la logística comparo probabilidades, no solo etiquetas.
+
+\paso{Paso 3: caso sin solución única.} Con una columna duplicada, Lasso tiene infinitas soluciones (solo la suma de los dos coeficientes queda determinada). scikit-learn da $(0.58,0.89)$ y mi gradiente proximal da $(0.73,0.73)$: coeficientes distintos, pero el mismo objetivo y las mismas predicciones (error $3.6\times10^{-12}$).
+
+\paso{Conclusión.} Mis implementaciones coinciden con scikit-learn a precisión de máquina. Cuando la solución no es única, comparar coeficientes uno a uno daría una falsa alarma; lo correcto es comparar el objetivo, las predicciones y KKT.
+
+% ---------------------------------------------------------------------
+\subsection*{Problema 5. Simulación de sesgo, varianza y selección}
+\idea{simulo muchas veces el mismo experimento cambiando solo el ruido. Así puedo medir cuánto se equivoca un modelo ``en promedio'' (sesgo) y cuánto cambia de una réplica a otra (varianza), cosa que con un solo conjunto de datos no se puede ver.}
+
+\textbf{(a) Diseño.}
+
+\paso{Premisas.} Sigo el enunciado: $N=120$, $D=20$, $M=1000$, $R=40$, $\sigma^2=1$, cuatro bloques de 5 variables con correlación $\rho\in\{0,0.9\}$ dentro de cada bloque, coeficientes verdaderos $w^\star_1=3$, $w^\star_6=-2$, $w^\star_{11}=1.5$, $w^\star_{16}=-1$ (uno por bloque), sin intercepto y sin escalador.
+
+\paso{Paso 1: semillas.} De la semilla maestra 2026 saco subsemillas para $X$, para $X_*$ y para cada uno de los 40 ruidos, y las guardo en \texttt{p5\_subsemillas.json}. Así cada réplica se puede repetir por separado.
+
+\paso{Paso 2: ajustes.} Con $X$ y $X_*$ fijas, ajusto OLS, Ridge y Lasso con mis clases para cada $\lambda\in\{10^{-3},\dots,10\}$ y cada una de las 40 respuestas.
+
+\textbf{(b) Descomposición del error.}
+
+\paso{Definiciones.} En cada punto de auditoría $m$, $f^\star_m$ es el valor verdadero, $\hat f_{rm}$ la predicción de la réplica $r$ y $\bar f_m$ el promedio de las 40. $\hat B^2$ mide qué tan lejos está el promedio de la verdad, $\hat V$ cuánto se dispersan las réplicas alrededor de su promedio y $\hat E_f$ el error total.
+
+\paso{Paso 1: identidad exacta.} Para cada $m$, al expandir $(\hat f_{rm}-f^\star_m)^2=\big((\hat f_{rm}-\bar f_m)+(\bar f_m-f^\star_m)\big)^2$ aparece el término cruzado $\tfrac2R\sum_r(\hat f_{rm}-\bar f_m)(\bar f_m-f^\star_m)$, que es exactamente cero porque $\sum_r(\hat f_{rm}-\bar f_m)=0$. Esto solo es exacto con el factor $1/R$ (con $1/(R-1)$ no cierra). Numéricamente $\hat E_f=\hat B^2+\hat V$ con error $\le4\times10^{-15}$.
+
+\paso{Paso 2: respuesta nueva.} Si quiero predecir una respuesta nueva $y_*=f^\star+\varepsilon_*$, el ruido $\varepsilon_*$ es independiente de todo lo anterior y nadie lo puede predecir, así que el error esperado es $\hat E_f+\sigma^2$: por eso sumo $\sigma^2=1$.
+
+\paso{Paso 3: corrección Monte Carlo.} $\bar f_m$ es un promedio de solo 40 réplicas, así que también tiene ruido y $\E[\hat B^2]=B^2+V/R$. Por eso OLS, que es insesgado, muestra $\hat B^2\approx0.004$--$0.007$. Reporto también $\hat B^2-\hat V/(R-1)$, que quita ese efecto.
+
+\begin{table}[h]\centering\small
+\caption{Error en $X_*$ (en negrita, el menor $\hat E_f$ de cada modelo y escenario). OLS: $\hat E_f=0.201$ ($\rho=0$) y $0.200$ ($\rho=0.9$), con $\hat V\approx0.195$.}\label{tab:p5}
+\begin{tabular}{l ccc ccc | ccc ccc}\toprule
+& \multicolumn{6}{c|}{$\rho=0$} & \multicolumn{6}{c}{$\rho=0.9$}\\
+& \multicolumn{3}{c}{Ridge} & \multicolumn{3}{c|}{Lasso} & \multicolumn{3}{c}{Ridge} & \multicolumn{3}{c}{Lasso}\\
+$\lambda$ & $\hat B^2$ & $\hat V$ & $\hat E_f$ & $\hat B^2$ & $\hat V$ & $\hat E_f$ & $\hat B^2$ & $\hat V$ & $\hat E_f$ & $\hat B^2$ & $\hat V$ & $\hat E_f$\\\midrule
+$10^{-3}$ & .007 & .194 & .201 & .007 & .191 & .198 & .003 & .191 & .195 & .004 & .186 & .190\\
+$10^{-2}$ & .008 & .189 & \textbf{.197} & .006 & .164 & .170 & .016 & .160 & \textbf{.176} & .005 & .123 & .128\\
+$10^{-1}$ & .194 & .150 & .344 & .043 & .053 & \textbf{.096} & .384 & .065 & .449 & .050 & .054 & \textbf{.104}\\
+$1$ & 4.36 & .039 & 4.40 & 4.65 & .032 & 4.68 & 1.45 & .021 & 1.48 & 2.76 & .032 & 2.79\\
+$10$ & 13.2 & .001 & 13.2 & 16.0 & .000 & 16.0 & 7.26 & .003 & 7.27 & 15.8 & .000 & 15.8\\\bottomrule
+\end{tabular}\end{table}
+
+\paso{Paso 4: lectura de la tabla.} Al subir $\lambda$, $\hat V$ baja siempre y $\hat B^2$ sube. El mejor $\hat E_f$ está en un $\lambda$ intermedio: Ridge con $\lambda_2=0.01$ y Lasso con $\lambda_1=0.1$, ambos mejores que OLS (0.20). Con $\lambda\ge1$ el sesgo domina y los dos son mucho peores que OLS.
+
+\paso{Paso 5: Ridge frente a la teoría.} Comparo con las fórmulas de 1(c). La media empírica se separa de $AX^\top Xw^\star$ lo mismo que se espera por tener solo 40 réplicas (cociente entre 0.6 y 1.2), y la covarianza empírica se separa de $\sigma^2AX^\top XA$ también lo esperado (error relativo 0.33--0.76 frente a 0.41--0.73 esperado). Con $\rho=0.9$ el número de condición de $X^\top X$ es 145 (4.5 con $\rho=0$). En la dirección de menor autovalor ($d=5.1$) OLS tiene varianza 0.194, y $\lambda_2=0.01$ la baja a 0.128 a cambio de un sesgo de 0.33; en la dirección más grande ($d=747$) el sesgo casi no aparece. Es justo lo que predice 1(c): Ridge encoge sobre todo las direcciones inestables.
+
+\textbf{(c) Selección con Lasso.}
+
+\paso{Premisas.} Fijo de antemano la tolerancia $|\hat w_j|>10^{-8}$ para decir que una variable fue elegida, y no la cambio después. Precisión = fracción de elegidas que son relevantes; sensibilidad = fracción de las 4 relevantes que fueron elegidas. Un bloque se ``recupera'' si elijo al menos una de sus cinco variables.
+
+\paso{Paso 1: sin correlación.} Con $\rho=0$, $\lambda_1=1$ acierta el soporte exacto en el 82.5\% de las réplicas (precisión 1, sensibilidad 0.96), pero su $\hat E_f$ es 4.68. En cambio $\lambda_1=0.1$, el mejor para predecir, elige 8.4 variables en promedio (precisión 0.49, sensibilidad 1) y nunca acierta el soporte exacto.
+
+\paso{Paso 2: con correlación.} Con $\rho=0.9$ y $\lambda_1=1$, la sensibilidad individual baja a 0.76 mientras que la de bloque es 1.0, con 0.98 sustituciones por réplica: Lasso elige otra variable del mismo bloque en lugar de la verdadera. Ningún $\lambda$ acierta el soporte exacto, y $\lambda_1=10$ pone todos los coeficientes en cero.
+
+\begin{figure}[h]\centering
+\includegraphics[width=0.93\linewidth]{p5_trayectorias_seleccion.png}
+\caption{Arriba: trayectorias de Lasso (réplica 1); línea sólida = variable relevante, discontinua = otra variable de su bloque. Abajo: error de predicción esperado frente a sensibilidad y precisión.}
+\end{figure}
+
+\textbf{(d) Respuestas con evidencia.}
+
+\paso{¿La regularización reduce sesgo y varianza a la vez?} No. En la Tabla~\ref{tab:p5}, al subir $\lambda$ la varianza baja y el sesgo$^2$ (corregido) sube. Las pequeñas bajadas conjuntas con $\lambda=10^{-3}$ están dentro del ruido $V/R$. La regularización \emph{cambia} varianza por sesgo, y solo mejora el error total en un rango intermedio.
+
+\paso{¿Mejor predicción implica recuperar el soporte?} Tampoco. El mejor Lasso para predecir nunca acierta el soporte exacto, y el que mejor acierta el soporte predice unas 49 veces peor. Elegir variables y predecir son objetivos distintos.
+
+\paso{¿Cuándo una irrelevante reemplaza a una relevante?} Cuando está muy correlacionada con ella ($\rho=0.9$). En la muestra $x_j\approx x_1$, así que $w_jx_j$ aporta casi lo mismo con una penalización parecida. La variable es irrelevante en el modelo verdadero pero útil para predecir, y por eso la selección cambia entre réplicas.
+
+% ---------------------------------------------------------------------
+\subsection*{Problema 6. Regresión reproducible sobre Airfoil}
+\textbf{(a) Auditoría, partición y EDA.}
+
+\paso{Premisas.} Conservo las 1503 filas crudas, uso como \texttt{id} el número de línea (\texttt{AF0001}, \dots) y guardo el SHA-256 del archivo para saber que es el mismo. Antes de partir solo aplico reglas fijas de formato y dominio, sin calcular estadísticas.
+
+\paso{Paso 1: auditoría.} Todas las columnas son numéricas; no hay faltantes, valores fuera de dominio (todo positivo y ángulo $\ge0$), duplicados exactos ni filas con predictores repetidos. No elimino ninguna fila.
+
+\paso{Paso 2: partición.} Hago la partición 80/20 con semilla 2026 por grupos de filas idénticas, para que un duplicado nunca quede repartido; como no hay duplicados, es igual que partir por filas. Quedan 1202 filas de desarrollo y 301 de prueba (\texttt{p6\_particiones.csv}).
+
+\paso{Paso 3: EDA solo en desarrollo.} Planteé tres hipótesis antes de mirar:
+\begin{itemize}
+\item \emph{H1: el sonido baja con la frecuencia y es más lineal en escala log.} Se rechaza en parte: la media por frecuencia forma una U invertida (124.4\,dB a 200\,Hz, 128.7\,dB a 1\,kHz y 118.3\,dB a 10\,kHz), y la correlación con $\log_{10}f$ ($-0.361$) es incluso más débil que con $f$ ($-0.390$).
+\item \emph{H2: espesor y ángulo son redundantes.} Están muy asociados (Spearman 0.885). El logaritmo del espesor casi no cambia su relación con el sonido, así que no lo transformo.
+\item \emph{H3: más velocidad, más sonido.} Por velocidad ($n=217/376/232/377$) las medias van de 123.5 a 125.9\,dB: el efecto es pequeño. Pero la pendiente frente a $\log_{10}f$ cambia entre velocidades ($-4.4$ a $-6.8$\,dB por década), lo que sugiere interacciones.
+\end{itemize}
+
+\paso{Conclusión.} Los valores fuera de los bigotes (67 en frecuencia, 102 en espesor) son parte del diseño del experimento, así que los dejo. Ninguna decisión usa estadísticas de prueba.
+
+\textbf{(b) Validación cruzada.}
+
+\paso{Premisas.} Dos representaciones. La A usa las cinco variables estandarizadas. La B, motivada por H1, cambia $f$ por $\log_{10}(f/1\,\text{Hz})$ y $(\log_{10}(f/1\,\text{Hz})-3)^2$; dominio $f>0$, unidades $\log_{10}$Hz, y el centro 3 (1000\,Hz) es una constante que fijé, no se estima. El cuadrado permite la U invertida y el modelo sigue siendo lineal en sus parámetros.
+
+\paso{Paso 1: protocolo.} \texttt{KFold(5, shuffle, 2026)}, los mismos pliegues para todos los candidatos y el escalador ajustado dentro de cada pliegue (si lo ajustara con todo el desarrollo, el pliegue de validación ``vería'' sus propias medias: fuga). Antes de comparar fijé la grilla $\{10^{-3},\dots,10\}$ y la regla de desempate: si dos candidatos difieren en menos de 0.001\,dB prefiero la representación A, luego el mayor $\lambda$ y luego Ridge.
+
+\begin{table}[h]\centering\small
+\caption{RMSE (dB) en CV de 5 pliegues: media (desviación entre pliegues). Tabla completa en \texttt{p6\_cv\_resumen.csv}.}
+\begin{tabular}{lcccccc}\toprule
+Rep. & Media & OLS & Ridge $10^{-2}$ & Ridge $10^{-1}$ & Lasso $10^{-2}$ & Lasso $1$\\\midrule
+A & 6.889 (0.28) & 4.778 (0.21) & 4.778 (0.21) & 4.827 (0.18) & 4.778 (0.21) & 5.520 (0.20)\\
+B & --- & 4.611 (0.19) & \textbf{4.611 (0.19)} & 4.650 (0.18) & 4.612 (0.19) & 5.413 (0.22)\\\bottomrule
+\end{tabular}\end{table}
+
+\paso{Paso 2: lectura de la tabla.} La representación B mejora entre 0.07 y 0.25\,dB en los cinco pliegues. OLS, Ridge y Lasso con $\lambda\le0.01$ empatan a menos de 0.001\,dB: con unas 960 filas y 6 variables estandarizadas el problema está bien condicionado (justo lo contrario del caso $\rho=0.9$ del Problema 5), así que no hay varianza que corregir.
+
+\paso{Conclusión.} Con la regla fijada elijo \textbf{Ridge con $\lambda_2=0.01$ en la representación B}; el finalista OLS también usa B. La desviación entre pliegues no es un intervalo de confianza.
+
+\textbf{(c) Evaluación final única.}
+
+\paso{Paso 1: reajuste y prueba.} Congelo representación e hiperparámetros, reajusto los finalistas con todo el desarrollo y evalúo una sola vez en prueba. Referencia: RMSE 6.93, MAE 5.65 (con la mediana), $R^2=-0.003$. OLS-B: RMSE 4.924, MAE 3.694, $R^2=0.494$. Ridge-B: RMSE 4.921, MAE 3.700, $R^2=0.495$.
+
+\paso{Paso 2: comparación con la CV.} El RMSE de prueba es mayor que la media de CV (4.61) y que el peor pliegue (4.84). Una partición de 301 filas tiene su propia variabilidad; no reajusto nada por eso.
+
+\paso{Paso 3: errores sistemáticos.} La nube predicho vs.\ observado tiene pendiente menor que 1: sobrestimo los sonidos bajos y subestimo los altos, y los residuos forman una U invertida (Figura~\ref{fig:p6}). Además el error es mucho mayor para $f\le1600$\,Hz (RMSE 5.8) que para $f>1600$\,Hz (3.8), con segmentos definidos por la mediana de desarrollo. Las dos cosas indican interacciones (por ejemplo el número de Strouhal $f\delta/U$) que un modelo aditivo con dos transformaciones no captura.
+
+\begin{figure}[h]\centering
+\includegraphics[width=0.85\linewidth]{p6_final.png}
+\caption{Airfoil, prueba: predicción frente a observación y residuos frente a predicción (OLS-B y Ridge-B casi se superponen).}\label{fig:p6}
+\end{figure}
+
+\textbf{(d) Escenario de generalización.}
+
+\paso{Paso 1: qué mide mi partición.} Una partición aleatoria de filas mide \emph{interpolación dentro del mismo experimento}: casi toda fila de prueba tiene otras frecuencias del mismo ensayo (misma cuerda, ángulo y velocidad) en desarrollo.
+
+\paso{Paso 2: cómo evaluaría condiciones nuevas.} Agruparía por ensayo (cuerda, ángulo y velocidad) con \texttt{GroupKFold}, o guardaría valores completos para prueba, como una velocidad o una cuerda nunca vistas. No hice esa evaluación, así que no afirmo esa capacidad.
+
+\paso{Conclusión.} La evidencia (empates en CV y en prueba, y Lasso sin anular coeficientes) dice que regularizar no ayuda aquí: elegí Ridge por la regla de desempate y OLS sería igual de defendible. La mejora real viene de la representación. Los coeficientes son asociaciones dentro de este diseño, no efectos causales.
+
+% ---------------------------------------------------------------------
+\subsection*{Problema 7. Clasificación temporal y política de alertas}
+\idea{quiero avisar, dos horas antes, qué vuelos se van a retrasar. Hay pocos retrasos (2--4\%), así que hay que cuidar tres cosas: no usar información del futuro, medir con métricas que sirvan para clases desbalanceadas, y elegir el umbral de alerta pensando en costos y en cuántas alertas se pueden atender.}
+
+\textbf{(a) Datos, diccionario y partición.}
+
+\paso{Premisas.} Uso \texttt{generar\_vuelos(n=9600, seed=2026)} sin cambios y $Y=\mathbb 1\{\texttt{min\_retraso}\ge15\}$.
+
+\paso{Paso 1: diccionario.} Dos horas antes se conocen la hora programada, la distancia, la lluvia y el viento \emph{pronosticados}, la ocupación programada, el tráfico programado, la aerolínea y el origen. \texttt{min\_retraso} se conoce después, así que solo es la etiqueta; \texttt{fecha\_prediccion} solo sirve para ordenar y partir.
+
+\paso{Paso 2: partición temporal.} Ordeno por fecha, corto al 60\% y al 80\% y quito las 24 filas anteriores a cada corte. Entrenamiento V00000--V05735 (5736 filas, del 2024-01-01 al 2024-08-26), validación V05760--V07655 (1896) y prueba V07680--V09599 (1920). Con \texttt{assert} compruebo que hay 25\,h entre conjuntos seguidos.
+
+\paso{Paso 3: auditoría en entrenamiento.} 140 retrasos (2.44\%) y cerca de 6\% de faltantes en lluvia, viento, ocupación y aerolínea; el tráfico y la prevalencia crecen con el tiempo. El preprocesamiento (mediana y estandarización; moda y one-hot con \texttt{handle\_unknown='ignore'} para categorías nuevas) se ajusta dentro de cada entrenamiento.
+
+\textbf{(b) Comparación por validación cruzada temporal.}
+
+\paso{Premisas.} Comparo mi logística L2 sin ponderar con la ponderada: la misma clase con pesos $a_c=N/(2N_c)$ calculados en cada entrenamiento, normalizada por $\sum_na_{y_n}=N$. Coincide con \texttt{class\_weight='balanced'} y $C=1/(N\lambda_2)$ de scikit-learn (error relativo de probabilidades $\le4\times10^{-7}$ y el mismo intercepto sin penalizar).
+
+\paso{Paso 1: pliegues.} \texttt{TimeSeriesSplit(4, gap=24)}: el pliegue de ajuste crece y siempre va antes del de evaluación. Los cuatro pliegues evaluados tienen las dos clases (27 a 31 positivos). Elijo por AP (área bajo precisión--recall), que se fija en los positivos y sirve con clases desbalanceadas.
+
+\begin{table}[h]\centering\small
+\caption{AP media (desviación) en CV temporal. Referencia constante: AP 0.026. No alertar: costo 0.31 por vuelo.}
+\begin{tabular}{lccccc}\toprule
+$\lambda_2$ & $10^{-3}$ & $10^{-2}$ & $10^{-1}$ & 1 & 10\\\midrule
+Sin ponderar & 0.229 (0.06) & 0.236 (0.08) & 0.216 (0.08) & 0.209 (0.08) & 0.209 (0.08)\\
+Ponderada & 0.226 (0.07) & 0.238 (0.08) & \textbf{0.246 (0.10)} & 0.223 (0.09) & 0.211 (0.08)\\\bottomrule
+\end{tabular}\end{table}
+
+\paso{Conclusión.} Gana la \textbf{logística ponderada con $\lambda_2=0.1$}, sin empate. Su ventaja (0.011) es pequeña frente a la dispersión entre pliegues: es una elección por regla, no una superioridad demostrada. Además la ponderación empeora la log-loss (0.46 frente a 0.10) y el Brier.
+
+\textbf{(c) Contraexperimento de fuga y diagnóstico en validación.}
+
+\paso{Paso 1: contraexperimento.} Con el ganador y los pliegues fijos, ajusto el preprocesamiento una sola vez con todo el entrenamiento antes de la CV (contaminado) y lo comparo con ajustarlo en cada pliegue (correcto). El contaminado usa, por ejemplo, una mediana de tráfico de 48.21 en lugar de 46.18--47.43. Aun así, $\Delta$AP (contaminada menos correcta) vale $-0.002$ en promedio (de $-0.005$ a $+0.0002$) y $\Delta$log-loss $-0.0008$. Ni el signo ni el tamaño prueban que no haya fuga: la fuga es un error del \emph{procedimiento} (usar información que no habría al predecir); aquí lo filtrado predice poco y la deriva temporal puede ayudar o empeorar. Estos resultados no participan en la selección.
+
+\paso{Paso 2: métricas en validación.} Prevalencia 3.9\%. Sin ponderar: AP 0.392, ROC-AUC 0.851, log-loss 0.126, Brier 0.032. Ponderado: AP 0.394, ROC-AUC 0.853, log-loss 0.535, Brier 0.178. La AP (suma por escalones) y el área trapezoidal bajo PR (une los puntos con rectas) difieren en cerca de 0.002.
+
+\paso{Paso 3: calibración.} Con 5 grupos por cuantiles (379--380 casos; 0/2/9/10/53 y 0/2/9/9/54 positivos; sin probabilidades repetidas), el modelo sin ponderar está cerca de la diagonal salvo en el último grupo (0.090 frente a 0.140). El ponderado sobrestima mucho (0.15--0.70 frente a 0--0.14): al darle a cada retraso un peso unas 40 veces mayor ($a_1=20.49$, $a_0=0.51$), el modelo aprende probabilidades ``infladas''. Ordena bien, pero sus números no son probabilidades reales. No cambio el ganador.
+
+\textbf{(d) Política de alertas.}
+
+\paso{Umbral teórico.} Si $p$ fuera la probabilidad verdadera de retraso, alertar cuesta en promedio $1\cdot(1-p)$ (falsa alarma) y no alertar cuesta $12p$ (retraso no avisado). Conviene alertar cuando $12p\ge1-p$, es decir, $p\ge1/13\approx0.077$. Esta regla va vuelo por vuelo y no limita cuántas alertas salen.
+
+\paso{Paso 1: tabla de umbrales.} Con las probabilidades de validación del ganador evalúo 1898 umbrales: todos los valores únicos, ``alertar a todos'' ($\tau=0$) y ``no alertar'' ($\tau=+\infty$), con un indicador de modo extremo.
+
+\paso{Paso 2: factibilidad.} \textbf{Ninguno cumple a la vez recall $\ge0.80$ y alertas $\le15\%$: el resultado es inviabilidad empírica.} Con máximo 15\% de alertas el mejor recall es 0.635 ($\tau=0.6351$, 14.0\%); para llegar a recall 0.80 hay que alertar al menos al 34.6\% ($\tau=0.4546$).
+
+\paso{Paso 3: referencia diagnóstica.} Congelo como \emph{referencia diagnóstica, no como política aprobada}, el umbral de menor costo sin restricciones, $\tau=0.6351112312464089$ (costo 0.286).
+
+\paso{Paso 4: comparación.} $\tau=0.5$ da recall 0.77 con 28\% de alertas (costo 0.358). $\tau=1/13$ supone probabilidades correctas; con las probabilidades infladas del modelo ponderado alerta al 98.5\% (costo 0.946), peor que no alertar (0.468). Si traslado $1/13$ a la escala ponderada con los pesos ($\tau_q=\frac{a_1\tau}{a_1\tau+a_0(1-\tau)}\approx0.769$) cuesta 0.308, cerca del mínimo: el problema era la escala, no la regla. Lo dejo solo como diagnóstico.
+
+\begin{figure}[h]\centering
+\includegraphics[width=\linewidth]{p7_validacion.png}\\[2pt]
+\includegraphics[width=0.78\linewidth]{p7_umbrales.png}
+\caption{Vuelos, validación: ROC, PR y calibración (5 grupos por cuantiles) de los dos candidatos; factibilidad recall--alertas y costo por umbral del ganador.}
+\end{figure}
+
+\textbf{(e) Evaluación final en prueba.}
+
+\paso{Premisas.} Antes de abrir la prueba guardé un manifiesto JSON con variables, preprocesamiento, parámetros, regla y umbral sin redondear, y no reentreno con validación. La prueba tiene 71 retrasos en 1920 vuelos.
+
+\paso{Paso 1: métricas de probabilidad.} AP 0.409, ROC-AUC 0.869, log-loss 0.561 y Brier 0.191, iguales para las tres políticas porque no dependen del umbral (lo compruebo con \texttt{assert}).
+
+\paso{Paso 2: métricas de decisión.} Calculo TP, TN, FP y FN con NumPy y los verifico con \texttt{confusion\_matrix} (Tabla~\ref{tab:p7}).
+
+\begin{table}[h]\centering\small
+\caption{Evaluación única en prueba (alertas por cada 1000 vuelos).}\label{tab:p7}
+\begin{tabular}{lcccccccccc}\toprule
+Política & TP & FP & FN & TN & Prec. & Recall & Espec. & F1 & Acc. & Costo / Alertas\\\midrule
+$\tau=0.5$ & 57 & 565 & 14 & 1284 & 0.092 & 0.803 & 0.694 & 0.165 & 0.698 & 0.382 / 324\\
+$\tau=1/13$ & 71 & 1821 & 0 & 28 & 0.038 & 1.000 & 0.015 & 0.072 & 0.052 & 0.948 / 985\\
+$\tau=0.6351$ (diagn.) & 50 & 234 & 21 & 1615 & 0.176 & 0.704 & 0.873 & 0.282 & 0.867 & 0.253 / 148\\\bottomrule
+\end{tabular}\end{table}
+
+\paso{Conclusión.} Ninguna política cumple las dos restricciones en prueba. La diagnóstica respeta la capacidad (148 alertas por cada 1000) y tiene el menor costo, pero su recall es 0.70. Cumplir en validación no garantizaba cumplir en prueba: elegí el umbral con solo 74 positivos (cada uno mueve el recall cerca de 1.4 puntos) y la prevalencia y el tráfico cambian con el tiempo. No ajusto la política después de ver la prueba; concluyo que con estas variables la meta conjunta no se alcanza y que habría que revisar la capacidad o conseguir más información.
+
+% =====================================================================
+\section*{Conclusiones}
+\begin{itemize}
+\item Mis implementaciones coinciden con scikit-learn a precisión de máquina cuando igualo los objetivos. Cuando la solución no es única, hay que verificar con el objetivo, las predicciones y KKT, no con los coeficientes.
+\item La regularización cambia varianza por sesgo: ayuda cuando los datos están mal condicionados (simulación con $\rho=0.9$) y no aporta cuando el problema ya está bien condicionado (Airfoil), donde importa más la representación.
+\item Elegir las variables correctas y predecir bien son objetivos distintos.
+\item En clasificación desbalanceada, ordenar bien (AP, ROC-AUC) no significa tener probabilidades calibradas; el umbral de Bayes solo vale con probabilidades correctas, y si una restricción operativa no se puede cumplir, hay que reportarlo.
+\end{itemize}
+
+\textbf{Reproducibilidad.} En mi equipo (\equipo), sin entorno virtual y desde un kernel limpio, los notebooks 01, 02 y 03 tardan \tiempoUno, \tiempoDos{} y \tiempoTres{} (medido con \texttt{jupyter nbconvert -{}-execute}, incluyendo el arranque del kernel). Versiones y orden de ejecución en el README.
+
+% =====================================================================
+\section*{Atribución, contribuciones y uso de IA generativa}
+\textbf{Código adaptado de \texttt{Regresion\_lineal\_logistica\_regularizacion.ipynb} (notebook de clase).}
+\begin{itemize}
+\item \texttt{LinearRegressionScratch} $\to$ \texttt{LinearRegressionGD} y su clase base \texttt{\_Linear}. Conservé el descenso por gradiente sobre MSE/2 y la parada por la norma del gradiente. Cambié: el vector aumentado $\theta=(b,w)$ con la matriz $P$ para agregar L2 sin penalizar $b$; la tasa \texttt{learning\_rate} por $\eta=1/L$ calculado con la norma espectral (por eso \textbf{eliminé el parámetro de tasa manual}, que ya no se usaba); el inicio en $\theta=0$ en vez de $b=\bar y$; y agregué historial del objetivo, motivo de parada, \texttt{warm\_start}, revisión de entradas y guardado en JSON (Problema 4a--4b).
+\item \texttt{LogisticRegressionScratch} $\to$ \texttt{LogisticRegressionGD}. Mantuve la estructura scores--probabilidades--error--gradiente y agregué L2, pesos \texttt{class\_weight='balanced'} normalizados por $S=\sum_na_n$ (Problema 7b), \texttt{predict(X, threshold)} y \texttt{log\_loss} calculada desde el score.
+\item \texttt{fit\_regularized} $\to$ función \texttt{gradiente\_proximal} y clase \texttt{LassoRegression}. Tomé el paso de gradiente seguido del umbral suave y la parada por $\lVert\theta^+-\theta\rVert/\eta$. Lo separé en una función que usan los tres modelos iterativos (para no repetir el algoritmo), le agregué la aceleración tipo FISTA con reinicio, y apliqué el umbral solo a $w$ con $\eta\lambda_1$.
+\item \texttt{sigmoid} y \texttt{binary\_cross\_entropy} $\to$ \texttt{sigmoid}, \texttt{log1pexp} y \texttt{logistic\_loss\_terms}. Reescribí la sigmoide con $e^{-|z|}$ y la pérdida como $\log(1+e^{(1-2y)z})$ por observación, porque los pesos de clase necesitan los términos individuales y la prueba de estabilidad pide no recortar el score.
+\item \texttt{prepare\_data} y la celda de descarga de Airfoil $\to$ \texttt{ajustar\_predecir} y la celda de carga del Notebook~2. Reutilicé la URL, los nombres de columnas y la idea de ajustar el \texttt{StandardScaler} solo con entrenamiento; agregué copia local, SHA-256, \texttt{id} estable y partición por grupos de duplicados (Problema 6a).
+\end{itemize}
+\textbf{Código adaptado de \texttt{Taller\_clasificacion\_vuelos.ipynb} (notebook de clase).}
+\begin{itemize}
+\item \texttt{generar\_vuelos}: copia literal, sin cambiar el mecanismo; solo paso \texttt{seed=2026} explícito.
+\item \texttt{separar\_por\_tiempo} $\to$ celda de partición del Notebook~3: mismos cortes 60/80\% y gap de 24 filas; agregué \texttt{id\_vuelo}, el manifiesto \texttt{p7\_particiones.csv} y la comprobación de las 25\,h.
+\item \texttt{construir\_pipeline} $\to$ \texttt{crear\_prep}, \texttt{crear\_modelo}, \texttt{ajustar} y \texttt{probas}: el mismo \texttt{ColumnTransformer}, pero separado del clasificador porque el modelo es mi \texttt{LogisticRegressionGD}.
+\item \texttt{comparar\_fuga} $\to$ celda del contraexperimento: misma comparación global vs.\ por pliegue, con mi modelo, la log-loss y las estadísticas de tráfico usadas.
+\item \texttt{tabla\_umbrales} y \texttt{seleccionar\_umbral} $\to$ \texttt{tabla\_umbrales} y la celda de política: agregué $\tau=0$ y $\tau=+\infty$ con indicador de modo, el costo $(12FN+FP)/N$, la restricción de alertas, los desempates del 7d y el reporte de inviabilidad.
+\item \texttt{metricas\_manuales} y \texttt{comparar\_politicas} $\to$ celda de evaluación final: TP/TN/FP/FN con NumPy verificados con \texttt{confusion\_matrix}; quité el recorte de probabilidades en la log-loss y agregué especificidad, Brier, costo y alertas por cada 1000 vuelos.
+\end{itemize}
+{\sloppy Son míos, sin código base del curso: \texttt{OLSRegression}, \texttt{RidgeRegression}, \texttt{lasso\_kkt\_violation}, \texttt{numerical\_gradient}, \texttt{relative\_gradient\_error}, las 33 pruebas del Notebook~1, la simulación del Problema 5 y los bucles de validación cruzada de los Problemas 6 y 7.\par}
+
+\textbf{Contribuciones.} Trabajo individual (Juan José Jiménez Maya): derivaciones, implementación, experimentos e informe.
+
+\textbf{Uso de IA generativa.} Utilicé IA generativa como apoyo para encaminar las demostraciones (redacté el planteamiento original en Obsidian y utilicé Claude exclusivamente para transcribir y formatear el texto de Markdown a LaTeX), y también la utilicé para adaptar lo necesario del código base de los talleres a las necesidades y requerimientos específicos de esta implementación. Ninguna salida de la IA sustituye las demostraciones, las pruebas numéricas o los resultados ejecutados, que se reproducen al ejecutar los notebooks desde un kernel limpio.
+
+\section*{Referencias}
+{\small Brooks, T., Pope, D., Marcolini, M. (1989). \emph{Airfoil Self-Noise}. UCI ML Repository, doi:10.24432/C5VW2C. ·
+Hoerl, A., Kennard, R. (1970). Ridge regression. \emph{Technometrics} 12(1). ·
+Tibshirani, R. (1996). Regression shrinkage and selection via the lasso. \emph{JRSS-B} 58(1). ·
+Beck, A., Teboulle, M. (2009). A fast iterative shrinkage-thresholding algorithm. \emph{SIAM J. Imaging Sci.} 2(1). ·
+O'Donoghue, B., Candès, E. (2015). Adaptive restart for accelerated gradient schemes. \emph{Found. Comput. Math.} 15. ·
+Elkan, C. (2001). The foundations of cost-sensitive learning. \emph{IJCAI}. ·
+Pedregosa et al. (2011). Scikit-learn. \emph{JMLR} 12. · Material del curso (notebooks de clase).}
+\end{document}

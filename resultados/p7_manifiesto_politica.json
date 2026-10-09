@@ -1,0 +1,141 @@
+{
+  "creado_antes_de_abrir_prueba": true,
+  "datos": "generar_vuelos(n=9600, seed=2026); Y = 1{min_retraso >= 15}",
+  "particion": {
+    "cortes": [
+      5760,
+      7680
+    ],
+    "gap_filas": 24,
+    "entrenamiento": [
+      "V00000",
+      "V05735"
+    ],
+    "validacion": [
+      "V05760",
+      "V07655"
+    ],
+    "prueba": [
+      "V07680",
+      "V09599"
+    ]
+  },
+  "variables": {
+    "numericas": [
+      "hora_salida",
+      "distancia_km",
+      "lluvia_pronosticada_mm",
+      "viento_pronosticado_kmh",
+      "ocupacion_programada_pct",
+      "trafico_programado"
+    ],
+    "categoricas": [
+      "aerolinea",
+      "origen"
+    ],
+    "excluidas": [
+      "fecha_prediccion",
+      "min_retraso"
+    ]
+  },
+  "preprocesamiento": {
+    "numericas": {
+      "imputacion_mediana": {
+        "hora_salida": 11.5,
+        "distancia_km": 992.8271766649225,
+        "lluvia_pronosticada_mm": 1.7703695731560725,
+        "viento_pronosticado_kmh": 14.99353442849106,
+        "ocupacion_programada_pct": 77.29878469454927,
+        "trafico_programado": 48.21071498893058
+      },
+      "media": {
+        "hora_salida": 11.5,
+        "distancia_km": 993.0132990608906,
+        "lluvia_pronosticada_mm": 2.360700587045574,
+        "viento_pronosticado_kmh": 14.977677907464003,
+        "ocupacion_programada_pct": 77.03611106576119,
+        "trafico_programado": 48.174216652607
+      },
+      "escala": {
+        "hora_salida": 6.922186552431729,
+        "distancia_km": 456.51856800711425,
+        "lluvia_pronosticada_mm": 2.109536091956472,
+        "viento_pronosticado_kmh": 5.860444766984165,
+        "ocupacion_programada_pct": 11.427898421835582,
+        "trafico_programado": 12.974103165228975
+      }
+    },
+    "categoricas": {
+      "imputacion_moda": {
+        "aerolinea": "Aero_A",
+        "origen": "CTG"
+      },
+      "categorias": {
+        "aerolinea": [
+          "Aero_A",
+          "Aero_B",
+          "Aero_C"
+        ],
+        "origen": [
+          "BOG",
+          "CLO",
+          "CTG",
+          "MDE"
+        ]
+      },
+      "handle_unknown": "ignore"
+    },
+    "ajustado_con": "entrenamiento completo"
+  },
+  "modelo": {
+    "clase": "mlcore.LogisticRegressionGD",
+    "ponderado": true,
+    "lambda2": 0.1,
+    "columnas": [
+      "num__hora_salida",
+      "num__distancia_km",
+      "num__lluvia_pronosticada_mm",
+      "num__viento_pronosticado_kmh",
+      "num__ocupacion_programada_pct",
+      "num__trafico_programado",
+      "cat__aerolinea_Aero_A",
+      "cat__aerolinea_Aero_B",
+      "cat__aerolinea_Aero_C",
+      "cat__origen_BOG",
+      "cat__origen_CLO",
+      "cat__origen_CTG",
+      "cat__origen_MDE"
+    ],
+    "coef": [
+      0.12955328689065929,
+      0.0668016712264801,
+      0.48243224036053745,
+      0.42287719049968264,
+      0.2891115052444527,
+      0.6356160396455435,
+      0.024800352491131453,
+      -0.1026783706733919,
+      0.07787809713370406,
+      0.08090867058456212,
+      -0.012034085462249433,
+      -0.07421042146013722,
+      0.00533591528926824
+    ],
+    "intercept": -0.7008191993994254,
+    "iteraciones": 60,
+    "terminacion": "tol(norma del mapeo de gradiente)"
+  },
+  "regla": "alerta si p >= tau",
+  "politicas": {
+    "tau_0.5": 0.5,
+    "tau_teorico_1_13": 0.07692307692307693,
+    "tau_diagnostico_min_costo": "0.6351112312464089"
+  },
+  "estado_politica_validacion": "inviabilidad empírica",
+  "restricciones": {
+    "recall_min": 0.8,
+    "tasa_alertas_max": 0.15,
+    "C_FP": 1.0,
+    "C_FN": 12.0
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "criterio": "max AP media en 4 pliegues TimeSeriesSplit(gap=24); empate <=1e-6: sin ponderar, mayor lambda2",
+  "ganador": {
+    "modelo": "LR ponderada",
+    "lambda2": 0.1,
+    "AP_media": 0.2464645819335814
+  },
+  "candidatos_empatados": 1,
+  "mejor_sin_ponderar": {
+    "lambda2": 0.01,
+    "AP_media": 0.235650669560666
+  },
+  "mejor_ponderado": {
+    "lambda2": 0.1,
+    "AP_media": 0.2464645819335814
+  },
+  "referencia_constante_AP_media": 0.025719267654751528
+}

@@ -1,0 +1,17 @@
+{
+  "criterio": "menor RMSE medio en 5 pliegues; desempate <0.001 dB: rep A, mayor lambda, Ridge",
+  "regularizado": {
+    "modelo": "Ridge",
+    "lambda": 0.01,
+    "rep": "B",
+    "RMSE_media": 4.611113457234589,
+    "RMSE_sd": 0.19038600138195708,
+    "candidatos_en_empate": 4
+  },
+  "OLS": {
+    "rep": "B",
+    "RMSE_media": 4.611447604641201,
+    "RMSE_sd": 0.19280303835451268
+  },
+  "referencia": "Media (MSE/RMSE) y Mediana (MAE) de desarrollo"
+}

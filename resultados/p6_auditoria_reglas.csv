@@ -1,0 +1,10 @@
+regla,filas que violan / casos
+frecuencia > 0 (Hz),0
+angulo >= 0 (grados),0
+cuerda > 0 (m),0
+velocidad > 0 (m/s),0
+espesor > 0 (m),0
+sonido > 0 (dB),0
+ids únicos,0
+filas duplicadas exactas,0
+filas con predictores repetidos,0
