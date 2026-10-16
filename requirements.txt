@@ -1,7 +1,6 @@
-# Versiones con las que generé los resultados (Python 3.14.7, Windows 11, sin entorno virtual)
+# Versiones con las que se generaron los resultados
 numpy==2.5.3
 pandas==3.0.5
-scipy==1.18.1
 scikit-learn==1.9.1
 matplotlib==3.11.2
 # Para ejecutar los notebooks

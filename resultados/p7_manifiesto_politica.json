@@ -88,9 +88,10 @@
     "ajustado_con": "entrenamiento completo"
   },
   "modelo": {
-    "clase": "mlcore.LogisticRegressionGD",
+    "clase": "sklearn.linear_model._logistic.LogisticRegression",
     "ponderado": true,
     "lambda2": 0.1,
+    "C_sklearn": 0.0017433751743375174,
     "columnas": [
       "num__hora_salida",
       "num__distancia_km",
@@ -107,29 +108,28 @@
       "cat__origen_MDE"
     ],
     "coef": [
-      0.12955328689065929,
-      0.0668016712264801,
-      0.48243224036053745,
-      0.42287719049968264,
-      0.2891115052444527,
-      0.6356160396455435,
-      0.024800352491131453,
-      -0.1026783706733919,
-      0.07787809713370406,
-      0.08090867058456212,
-      -0.012034085462249433,
-      -0.07421042146013722,
-      0.00533591528926824
+      0.12955328303905256,
+      0.06680167647346771,
+      0.4824322277785886,
+      0.42287719328354895,
+      0.2891115119451743,
+      0.635616044151809,
+      0.024800318015708187,
+      -0.10267837947262125,
+      0.07787805012416911,
+      0.08090868407569612,
+      -0.01203411711096215,
+      -0.07421041672305244,
+      0.005335838425574505
     ],
-    "intercept": -0.7008191993994254,
-    "iteraciones": 60,
-    "terminacion": "tol(norma del mapeo de gradiente)"
+    "intercept": -0.7008191480754411,
+    "iteraciones": 16
   },
   "regla": "alerta si p >= tau",
   "politicas": {
     "tau_0.5": 0.5,
     "tau_teorico_1_13": 0.07692307692307693,
-    "tau_diagnostico_min_costo": "0.6351112312464089"
+    "tau_diagnostico_min_costo": "0.6351112239347184"
   },
   "estado_politica_validacion": "inviabilidad empírica",
   "restricciones": {
